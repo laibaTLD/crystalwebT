@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { useWebBuilder } from '@/app/providers/WebBuilderProvider';
 import { useThemeColors, useThemeFonts } from '@/app/hooks/useTheme';
-import { getHeaderNavItems } from '@/app/lib/siteContent';
-import { getImageSrc, cn } from '@/app/lib/utils';
+import { getHeaderNavItems, getSiteLogoSrc } from '@/app/lib/siteContent';
+import { cn } from '@/app/lib/utils';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { resolvePrimaryCta } from '@/app/components/ui/made';
 
@@ -121,7 +121,7 @@ export const Header: React.FC = () => {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const logoImage = site?.theme?.logoUrl ? getImageSrc(site.theme.logoUrl) : undefined;
+  const logoImage = useMemo(() => getSiteLogoSrc(site), [site]);
   const phoneNumber = site?.business?.phone?.trim();
 
   const themeData = useMemo(() => {
@@ -215,6 +215,7 @@ export const Header: React.FC = () => {
                 width={240}
                 height={72}
                 priority
+                unoptimized
                 className="h-14 w-auto max-h-[4rem] object-contain sm:h-16 lg:h-[4.25rem]"
               />
             </Link>

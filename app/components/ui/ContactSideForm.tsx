@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import gsap from 'gsap';
-import { useThemeFonts } from '@/app/hooks/useTheme';
+import { useThemeColors, useThemeFonts } from '@/app/hooks/useTheme';
 import { useWebBuilder } from '@/app/providers/WebBuilderProvider';
 
 interface ContactSideFormProps {
@@ -16,14 +16,16 @@ function UnderlineField({
   label,
   children,
   labelFont,
+  labelColor,
 }: {
   label: string;
   children: React.ReactNode;
   labelFont: string;
+  labelColor: string;
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs text-gray-900" style={{ fontFamily: labelFont }}>
+      <label className="block text-xs" style={{ fontFamily: labelFont, color: labelColor }}>
         {label}
       </label>
       {children}
@@ -34,6 +36,7 @@ function UnderlineField({
 export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClose }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const themeColors = useThemeColors();
   const themeFonts = useThemeFonts();
   const { site } = useWebBuilder();
 
@@ -48,14 +51,6 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
     acceptedTerms: false,
   });
 
-  const accentRed =
-    site?.theme?.primaryButtonColorLight ||
-    site?.theme?.darkPrimaryColor ||
-    '#c45c5c';
-  const linePink = '#e8c8c8';
-  const buttonPink = '#e5b8b8';
-  const panelBg = '#f2f2f2';
-
   const headingFont = themeFonts.heading
     ? `${themeFonts.heading}, Georgia, serif`
     : 'Georgia, "Times New Roman", serif';
@@ -63,21 +58,22 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
     ? `${themeFonts.body}, system-ui, sans-serif`
     : 'system-ui, -apple-system, sans-serif';
 
-  const underlineClass =
-    'w-full border-0 border-b bg-transparent py-1.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400';
+  const lineColor = `color-mix(in srgb, ${themeColors.secondaryText} 45%, transparent)`;
+  const lineFocusColor = themeColors.primaryButton;
 
   const underlineStyle: React.CSSProperties = {
     fontFamily: bodyFont,
+    color: themeColors.mainText,
     borderBottomWidth: 1,
     borderBottomStyle: 'solid',
-    borderBottomColor: linePink,
+    borderBottomColor: lineColor,
   };
 
   const onFocusLine = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-    e.currentTarget.style.borderBottomColor = accentRed;
+    e.currentTarget.style.borderBottomColor = lineFocusColor;
   };
   const onBlurLine = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-    e.currentTarget.style.borderBottomColor = linePink;
+    e.currentTarget.style.borderBottomColor = lineColor;
   };
 
   useEffect(() => {
@@ -149,6 +145,9 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
     }
   };
 
+  const fieldClass =
+    'w-full border-0 border-b bg-transparent py-1.5 text-sm outline-none transition-colors';
+
   return (
     <div className="fixed inset-0 z-[1000] overflow-hidden pointer-events-none">
       <div
@@ -161,13 +160,14 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
       <div
         ref={formRef}
         className="pointer-events-auto absolute top-0 right-0 flex h-full w-full max-w-[440px] translate-x-full flex-col overflow-hidden shadow-[-12px_0_40px_rgba(0,0,0,0.06)]"
-        style={{ backgroundColor: panelBg }}
+        style={{ backgroundColor: themeColors.pageBackground }}
       >
         <div className="flex shrink-0 justify-end px-5 pt-3">
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-gray-700 transition-opacity hover:opacity-60"
+            className="p-1 transition-opacity hover:opacity-60"
+            style={{ color: themeColors.mainText }}
             aria-label="Close form"
           >
             <X size={20} strokeWidth={1.25} />
@@ -179,27 +179,31 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
             <header className="mb-5 space-y-2">
               <h2
                 className="text-[1.45rem] font-normal leading-[1.15] md:text-[1.6rem]"
-                style={{ color: accentRed, fontFamily: headingFont }}
+                style={{ color: themeColors.primaryButton, fontFamily: headingFont }}
               >
                 Would you like
                 <br />
                 more information?
               </h2>
               <p
-                className="text-xs leading-snug text-gray-800"
-                style={{ fontFamily: bodyFont }}
+                className="text-xs leading-snug"
+                style={{ fontFamily: bodyFont, color: themeColors.secondaryText }}
               >
                 If you have any questions, tell us when it is better for us to call you.
               </p>
             </header>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <UnderlineField label="Name and surname" labelFont={bodyFont}>
+              <UnderlineField label="Name and surname" labelFont={bodyFont} labelColor={themeColors.mainText}>
                 <input
                   type="text"
                   required
-                  className={underlineClass}
-                  style={underlineStyle}
+                  className={fieldClass}
+                  style={{
+                    ...underlineStyle,
+                    ['--tw-placeholder-opacity' as string]: '1',
+                  }}
+                  placeholder=" "
                   onFocus={onFocusLine}
                   onBlur={onBlurLine}
                   value={formData.name}
@@ -207,11 +211,11 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
                 />
               </UnderlineField>
 
-              <UnderlineField label="Mail" labelFont={bodyFont}>
+              <UnderlineField label="Mail" labelFont={bodyFont} labelColor={themeColors.mainText}>
                 <input
                   type="email"
                   required
-                  className={underlineClass}
+                  className={fieldClass}
                   style={underlineStyle}
                   onFocus={onFocusLine}
                   onBlur={onBlurLine}
@@ -221,10 +225,10 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
               </UnderlineField>
 
               <div className="grid grid-cols-2 gap-4">
-                <UnderlineField label="Telephone" labelFont={bodyFont}>
+                <UnderlineField label="Telephone" labelFont={bodyFont} labelColor={themeColors.mainText}>
                   <input
                     type="tel"
-                    className={underlineClass}
+                    className={fieldClass}
                     style={underlineStyle}
                     onFocus={onFocusLine}
                     onBlur={onBlurLine}
@@ -233,11 +237,10 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
                   />
                 </UnderlineField>
 
-                <UnderlineField label="Preferable time" labelFont={bodyFont}>
+                <UnderlineField label="Preferable time" labelFont={bodyFont} labelColor={themeColors.mainText}>
                   <input
                     type="text"
-                    placeholder=""
-                    className={underlineClass}
+                    className={fieldClass}
                     style={underlineStyle}
                     onFocus={onFocusLine}
                     onBlur={onBlurLine}
@@ -247,10 +250,10 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
                 </UnderlineField>
               </div>
 
-              <UnderlineField label="Where did you find us" labelFont={bodyFont}>
+              <UnderlineField label="Where did you find us" labelFont={bodyFont} labelColor={themeColors.mainText}>
                 <input
                   type="text"
-                  className={underlineClass}
+                  className={fieldClass}
                   style={underlineStyle}
                   onFocus={onFocusLine}
                   onBlur={onBlurLine}
@@ -262,7 +265,11 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
               <label className="flex cursor-pointer items-center gap-2.5">
                 <input
                   type="checkbox"
-                  className="h-3.5 w-3.5 shrink-0 rounded-none border border-gray-400 accent-[#c45c5c]"
+                  className="h-3.5 w-3.5 shrink-0 rounded-none border"
+                  style={{
+                    borderColor: themeColors.inactive,
+                    accentColor: themeColors.primaryButton,
+                  }}
                   required
                   checked={formData.acceptedTerms}
                   onChange={(e) =>
@@ -270,14 +277,14 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
                   }
                 />
                 <span
-                  className="text-[10px] font-medium uppercase leading-snug tracking-[0.06em] text-gray-900"
-                  style={{ fontFamily: bodyFont }}
+                  className="text-[10px] font-medium uppercase leading-snug tracking-[0.06em]"
+                  style={{ fontFamily: bodyFont, color: themeColors.mainText }}
                 >
                   I accept the{' '}
                   <Link
                     href="/privacy-policy"
                     className="underline underline-offset-2"
-                    style={{ color: accentRed }}
+                    style={{ color: themeColors.primaryButton }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     privacy policy
@@ -290,7 +297,7 @@ export const ContactSideForm: React.FC<ContactSideFormProps> = ({ isOpen, onClos
                 disabled={isSubmitting}
                 className="flex w-full items-center justify-center py-3.5 text-xs font-bold uppercase tracking-[0.35em] text-white transition-all duration-300 hover:brightness-[1.03] active:scale-[0.995] disabled:opacity-55"
                 style={{
-                  backgroundColor: buttonPink,
+                  backgroundColor: themeColors.hoverActive,
                   fontFamily: bodyFont,
                 }}
               >

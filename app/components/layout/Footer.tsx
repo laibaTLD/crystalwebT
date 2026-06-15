@@ -10,9 +10,10 @@ import {
   getFooterNavLinks,
   getFooterDescriptionContent,
   hasFooterDescriptionContent,
+  getSiteLogoSrc,
 } from '@/app/lib/siteContent';
 import { getAreaCity, getAreaRegion } from '@/app/lib/serviceAreaSlugs';
-import { getImageSrc, TIPTAP_ON_DARK } from '@/app/lib/utils';
+import { TIPTAP_ON_DARK } from '@/app/lib/utils';
 import { TiptapRenderer } from '@/app/components/ui/TiptapRenderer';
 import { useScrollAnimation, useStaggeredAnimation } from '@/app/hooks/useScrollAnimation';
 import { useThemeColors } from '@/app/hooks/useTheme';
@@ -90,10 +91,7 @@ export const Footer: React.FC = () => {
     [footerDescription]
   );
 
-  const logoImage = useMemo(() => {
-    const url = site?.footer?.logo?.url || site?.theme?.logoUrl;
-    return url ? getImageSrc(url) : undefined;
-  }, [site?.footer?.logo?.url, site?.theme?.logoUrl]);
+  const logoImage = useMemo(() => getSiteLogoSrc(site), [site]);
 
   const themeColors = useThemeColors();
 

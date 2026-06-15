@@ -6,6 +6,27 @@ export function getBrandName(site?: Site | null): string {
   return site?.business?.name?.trim() || site?.name?.trim() || '';
 }
 
+function pickMediaUrl(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const url = (value as { url?: unknown }).url;
+    if (typeof url === 'string' && url.trim()) return url.trim();
+  }
+  return undefined;
+}
+
+/** Resolved logo URL from footer logo or theme (CMS may store either shape). */
+export function getSiteLogoSrc(site?: Site | null): string | undefined {
+  const raw = pickMediaUrl(site?.footer?.logo) ?? pickMediaUrl(site?.theme?.logoUrl);
+  if (!raw) return undefined;
+  const src = getImageSrc(raw);
+  return src || undefined;
+}
+
 export function getBusinessTagline(site?: Site | null): string {
   return site?.business?.tagline?.trim() || '';
 }
@@ -209,9 +230,9 @@ export function splitHeaderNavItems(
   return { leftNavItems, rightNavItems };
 }
 
-/** Header nav mirrors footer Explore links (all published routes + gallery/testimonials), minus home. */
+/** Header nav: published CMS pages only (no hardcoded Testimonials/Gallery fallbacks). */
 export function getHeaderNavItems(pages?: Page[]): HeaderNavItem[] {
-  return getFooterNavLinks(pages).map((link) => ({
+  return buildNavLinksFromPages(pages, { includeHardcodedExtras: false }).map((link) => ({
     id: link.id,
     name: link.label,
     href: link.href,
@@ -233,14 +254,16 @@ const FOOTER_PAGE_TYPE_ORDER: Page['pageType'][] = [
   'contact',
 ];
 
-/** Extra app routes when no dedicated CMS page exists in the list. */
+/** Extra app routes when no dedicated CMS page exists in the list (footer only). */
 const EXTRA_FOOTER_NAV: { slug: string; href: string; defaultName: string }[] = [
   { slug: 'testimonials', href: TESTIMONIALS_ROUTE, defaultName: 'Testimonials' },
   { slug: 'gallery', href: '/gallery', defaultName: 'Gallery' },
 ];
 
-/** All published pages for footer Explore — same on every route (ignores per-page footer link overrides). */
-export function getFooterNavLinks(pages?: Page[]): FooterNavLink[] {
+function buildNavLinksFromPages(
+  pages?: Page[],
+  options?: { includeHardcodedExtras?: boolean }
+): FooterNavLink[] {
   const published = pages?.filter((p) => p.status === 'published' && p.name?.trim()) ?? [];
   const orderedPages: Page[] = [];
   const seenIds = new Set<string>();
@@ -276,18 +299,25 @@ export function getFooterNavLinks(pages?: Page[]): FooterNavLink[] {
     links.push({ id: page._id, label: page.name.trim(), href });
   }
 
-  for (const extra of EXTRA_FOOTER_NAV) {
-    if (seenHrefs.has(extra.href)) continue;
-    const cmsPage = published.find((p) => normalizePageSlug(p.slug) === extra.slug);
-    links.push({
-      id: cmsPage?._id ?? `nav-${extra.slug}`,
-      label: cmsPage?.name?.trim() || extra.defaultName,
-      href: cmsPage ? getPageHref(cmsPage) : extra.href,
-    });
-    seenHrefs.add(extra.href);
+  if (options?.includeHardcodedExtras) {
+    for (const extra of EXTRA_FOOTER_NAV) {
+      if (seenHrefs.has(extra.href)) continue;
+      const cmsPage = published.find((p) => normalizePageSlug(p.slug) === extra.slug);
+      links.push({
+        id: cmsPage?._id ?? `nav-${extra.slug}`,
+        label: cmsPage?.name?.trim() || extra.defaultName,
+        href: cmsPage ? getPageHref(cmsPage) : extra.href,
+      });
+      seenHrefs.add(extra.href);
+    }
   }
 
   return links;
+}
+
+/** All published pages for footer Explore — same on every route (ignores per-page footer link overrides). */
+export function getFooterNavLinks(pages?: Page[]): FooterNavLink[] {
+  return buildNavLinksFromPages(pages, { includeHardcodedExtras: true });
 }
 
 export function getCopyrightText(site?: Site | null): string {
