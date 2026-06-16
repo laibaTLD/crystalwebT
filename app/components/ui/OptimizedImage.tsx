@@ -36,6 +36,24 @@ export const OptimizedImage = forwardRef<HTMLImageElement | null, OptimizedImage
     if (!src) return null;
 
     if (useNativeImgElement(src, unoptimized)) {
+      const {
+        priority: _priority,
+        placeholder: _placeholder,
+        blurDataURL: _blurDataURL,
+        quality: _quality,
+        loader: _loader,
+        onLoadingComplete: _onLoadingComplete,
+        loading: _loading,
+        ...imgRest
+      } = rest;
+      void _priority;
+      void _placeholder;
+      void _blurDataURL;
+      void _quality;
+      void _loader;
+      void _onLoadingComplete;
+      void _loading;
+
       return (
         <img
           ref={ref}
@@ -43,7 +61,7 @@ export const OptimizedImage = forwardRef<HTMLImageElement | null, OptimizedImage
           alt={alt}
           className={className}
           style={style}
-          {...rest}
+          {...imgRest}
         />
       );
     }

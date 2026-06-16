@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Site, Page, Service, BlogPost, Project } from '@/app/lib/types';
 import { siteApi, pageApi, serviceApi, blogApi, projectApi, testimonialApi, serviceAreaApi } from '@/app/lib/api';
+import type { InitialSiteData } from '@/app/lib/initialSiteData';
 
 // Site slug from environment variable
 const SITE_SLUG = process.env.NEXT_PUBLIC_WEBBUILDER_SITE_SLUG;
@@ -60,23 +61,26 @@ export const useWebBuilder = () => {
 
 interface WebBuilderProviderProps {
   children: ReactNode;
+  initialData?: InitialSiteData | null;
 }
 
-export const WebBuilderProvider: React.FC<WebBuilderProviderProps> = ({ children }) => {
-  const [site, setSite] = useState<Site | null>(null);
-  const [pages, setPages] = useState<Page[]>([]);
+export const WebBuilderProvider: React.FC<WebBuilderProviderProps> = ({ children, initialData }) => {
+  const [site, setSite] = useState<Site | null>(initialData?.site ?? null);
+  const [pages, setPages] = useState<Page[]>(initialData?.pages ?? []);
   const [services, setServices] = useState<Service[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [testimonials, setTestimonials] = useState<{ title?: string; description?: string; testimonials: any[] } | null>(null);
   const [serviceAreaPages, setServiceAreaPages] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState<Page | null>(null);
-  const [loading, setLoading] = useState(Boolean(SITE_SLUG));
+  const [loading, setLoading] = useState(!initialData && Boolean(SITE_SLUG));
   const [error, setError] = useState<string | null>(null);
 
-  const loadSite = async (slug: string) => {
+  const loadSite = async (slug: string, options?: { background?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.background) {
+        setLoading(true);
+      }
       setError(null);
       
       // Use real API when backend is available
@@ -180,7 +184,7 @@ export const WebBuilderProvider: React.FC<WebBuilderProviderProps> = ({ children
       setError('NEXT_PUBLIC_WEBBUILDER_SITE_SLUG environment variable is not defined. Please check your .env file.');
       return;
     }
-    loadSite(SITE_SLUG);
+    loadSite(SITE_SLUG, { background: Boolean(initialData) });
   }, []);
 
   // Optional: poll site for theme edits from builder (disabled in production by default — see rate limits)

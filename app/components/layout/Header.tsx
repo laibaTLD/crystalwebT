@@ -112,7 +112,7 @@ const headerStyles = `
 `;
 
 export const Header: React.FC = () => {
-  const { site, pages } = useWebBuilder();
+  const { site, pages, loading } = useWebBuilder();
   const themeColors = useThemeColors();
   const themeFonts = useThemeFonts();
 
@@ -183,6 +183,8 @@ export const Header: React.FC = () => {
     root.style.setProperty('--theme-primary-rgb', hexToRgb(themeData.primaryColor));
     root.style.setProperty('--theme-secondary-rgb', hexToRgb(themeData.secondaryColor));
   }, [themeData]);
+
+  if (loading && !site) return null;
 
   return (
     <>

@@ -30,7 +30,7 @@ export default function HomeClient() {
     body: site?.theme?.bodyFont,
   };
 
-  if (loading) return null;
+  if (loading && !site) return null;
 
   if (error && !site) {
     return (
