@@ -1,54 +1,53 @@
 'use client';
 
 import React from 'react';
-import { TiptapRenderer } from '@/app/components/ui/TiptapRenderer';
-import { cn, SECTION_PY } from '@/app/lib/utils';
-import { useThemeColors } from '@/app/hooks/useTheme';
+import type { Page } from '@/app/lib/types';
+import { WhyChooseUsSection } from '@/app/components/sections/WhyChooseUsSection';
 
-export const Highlights: React.FC<{ highlights: any; className?: string }> = ({ highlights, className }) => {
-  const themeColors = useThemeColors();
-  const items = (highlights.items || highlights.highlights || []).slice(0, 4);
+interface HighlightsProps {
+  highlights: unknown;
+  className?: string;
+}
 
-  if (!items.length) return null;
+type WhyChooseUsSectionData = NonNullable<Page['whyChooseUsSection']>;
 
-  return (
-    <section className={cn(SECTION_PY, className)} style={{ backgroundColor: themeColors.pageBackground }}>
-      <div className="container mx-auto px-6 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-          
-          <div className="lg:col-span-4">
-            {highlights.description ? (
-              <span className="text-[9px] tracking-[0.6em] uppercase font-bold opacity-40 mb-8 block">
-                <TiptapRenderer content={highlights.description} as="inline" />
-              </span>
-            ) : null}
-            <h2 className="text-4xl uppercase font-extralight tracking-tighter leading-none">
-              <TiptapRenderer content={highlights.title} />
-            </h2>
-          </div>
+function normalizeHighlightsSection(highlights: unknown): WhyChooseUsSectionData | null {
+  if (!highlights || typeof highlights !== 'object') return null;
 
-          <div className="lg:col-span-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-black/5 border border-black/5">
-              {items.map((item: any, i: number) => (
-                <div key={i} className="p-12 space-y-4 transition-colors" style={{ backgroundColor: themeColors.cardBackground }}>
-                  <div className="text-5xl font-extralight tracking-tighter" style={{ color: themeColors.primaryButton }}>
-                    {item.price || item.counter || '—'}
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold" style={{ color: themeColors.mainText }}>
-                      <TiptapRenderer content={item.title} as="inline" />
-                    </h4>
-                    <div className="text-xs opacity-50 uppercase tracking-widest leading-relaxed">
-                      <TiptapRenderer content={item.description} as="inline" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+  const data = highlights as Record<string, unknown>;
+  if (data.enabled === false) return null;
 
-        </div>
-      </div>
-    </section>
-  );
+  const rawItems = (data.items ?? data.highlights) as Array<{
+    title?: unknown;
+    description?: unknown;
+    price?: string;
+    counter?: string;
+  }> | undefined;
+
+  const items =
+    rawItems
+      ?.filter((item) => item?.title || item?.description || item?.price || item?.counter)
+      .map((item) => ({
+        title: item.title,
+        description: item.price || item.counter || item.description,
+      })) ?? [];
+
+  if (!data.title && !data.description && items.length === 0) return null;
+
+  return {
+    enabled: true,
+    title: data.title as WhyChooseUsSectionData['title'],
+    description: data.description as WhyChooseUsSectionData['description'],
+    items,
+  };
+}
+
+/** Service area stats/highlights — same card layout as home Why Choose Us. */
+export const Highlights: React.FC<HighlightsProps> = ({ highlights, className }) => {
+  const section = normalizeHighlightsSection(highlights);
+  if (!section) return null;
+
+  return <WhyChooseUsSection whyChooseUsSection={section} className={className} />;
 };
+
+export default Highlights;

@@ -1,13 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useWebBuilder } from '@/app/providers/WebBuilderProvider';
 import { useThemeColors, useThemeFonts } from '@/app/hooks/useTheme';
-import { getHeaderNavItems, getSiteLogoSrc } from '@/app/lib/siteContent';
+import { getHeaderNavItems, getSiteLogoSrc, type HeaderNavItem } from '@/app/lib/siteContent';
 import { cn } from '@/app/lib/utils';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { resolvePrimaryCta } from '@/app/components/ui/made';
+import {
+  getAreaDisplayName,
+  getServiceAreaPageHref,
+  resolveServiceSlug,
+} from '@/app/lib/serviceAreaSlugs';
+import type { Service } from '@/app/lib/types';
 
 function hexToRgb(hex: string) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -16,8 +22,22 @@ function hexToRgb(hex: string) {
     : '0, 0, 0';
 }
 
+function isServicesNavItem(item: HeaderNavItem, pages?: { _id: string; pageType?: string }[]): boolean {
+  if (item.href === '/services' || item.href.replace(/\/+$/, '') === '/services') return true;
+  const page = pages?.find((p) => p._id === item.id);
+  return page?.pageType === 'service-list';
+}
+
+type ServiceNavEntry = {
+  id: string;
+  name: string;
+  href: string;
+  areas: { key: string; name: string; href: string }[];
+};
+
 const headerStyles = `
   .royal-header {
+    overflow: visible;
     background: linear-gradient(
       135deg,
       rgba(var(--theme-primary-rgb), 0.03) 0%,
@@ -97,22 +117,74 @@ const headerStyles = `
   }
 
   .royal-header-nav {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overflow: visible;
   }
 
-  .royal-header-nav::-webkit-scrollbar {
-    display: none;
-    height: 0;
-    width: 0;
+  .services-dropdown-panel,
+  .services-submenu-panel {
+    background: color-mix(in srgb, var(--wb-page-bg) 96%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+    box-shadow: 0 16px 40px rgba(var(--theme-primary-rgb), 0.1);
+  }
+
+  .services-dropdown-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wb-text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.25s ease, background 0.25s ease;
+  }
+
+  .services-dropdown-link:hover,
+  .services-dropdown-link:focus-visible,
+  .services-dropdown-item:hover > .services-dropdown-link,
+  .services-dropdown-item:focus-within > .services-dropdown-link {
+    color: var(--wb-text-main);
+    background: rgba(var(--theme-primary-rgb), 0.06);
   }
 
 `;
 
+function ChevronIcon({ open, className }: { open?: boolean; className?: string }) {
+  return (
+    <svg
+      className={cn('h-3 w-3 shrink-0 transition-transform duration-200', open && 'rotate-180', className)}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+function NestedChevron({ className }: { className?: string }) {
+  return (
+    <svg
+      className={cn('h-3 w-3 shrink-0', className)}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
 export const Header: React.FC = () => {
-  const { site, pages, loading } = useWebBuilder();
+  const { site, pages, services, serviceAreaPages, loading } = useWebBuilder();
   const themeColors = useThemeColors();
   const themeFonts = useThemeFonts();
 
@@ -120,6 +192,13 @@ export const Header: React.FC = () => {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [hoveredServiceId, setHoveredServiceId] = useState<string | null>(null);
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
+  const [mobileExpandedServiceId, setMobileExpandedServiceId] = useState<string | null>(null);
+
+  const servicesDropdownRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const logoImage = useMemo(() => getSiteLogoSrc(site), [site]);
   const phoneNumber = site?.business?.phone?.trim();
@@ -146,9 +225,65 @@ export const Header: React.FC = () => {
 
   const navItems = useMemo(() => getHeaderNavItems(pages), [pages]);
 
+  const serviceNavEntries = useMemo((): ServiceNavEntry[] => {
+    const published = (services as Service[]).filter((s) => s.status === 'published');
+    const siteAreas = Array.isArray(site?.serviceAreas) ? site!.serviceAreas : [];
+
+    return published.map((service) => {
+      const slug = resolveServiceSlug(service);
+      const rawAreas =
+        Array.isArray(service.serviceAreas) && service.serviceAreas.length > 0
+          ? service.serviceAreas
+          : siteAreas;
+
+      const seen = new Set<string>();
+      const areas: ServiceNavEntry['areas'] = [];
+
+      for (const area of rawAreas) {
+        const name = getAreaDisplayName(area);
+        if (!name) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        areas.push({
+          key,
+          name,
+          href: getServiceAreaPageHref(slug, area, serviceAreaPages),
+        });
+      }
+
+      return {
+        id: service._id || slug,
+        name: service.name,
+        href: `/service/${slug}`,
+        areas,
+      };
+    });
+  }, [services, site?.serviceAreas, serviceAreaPages]);
+
   const ctaHref = phoneNumber ? `tel:${phoneNumber.replace(/\s/g, '')}` : primaryCta?.href ?? '#';
   const ctaLabel = phoneNumber ? 'Call Us' : primaryCta?.label ?? 'Call Us';
   const showCta = Boolean(phoneNumber || primaryCta);
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const openServicesMenu = () => {
+    clearCloseTimer();
+    setServicesOpen(true);
+  };
+
+  const scheduleCloseServicesMenu = () => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setServicesOpen(false);
+      setHoveredServiceId(null);
+    }, 220);
+  };
 
   useEffect(() => {
     document.documentElement.classList.remove('hero-intro-active');
@@ -167,13 +302,34 @@ export const Header: React.FC = () => {
   }, [lastScrollY]);
 
   useEffect(() => {
-    if (!isMenuOpen) return;
+    if (!isMenuOpen && !servicesOpen) return;
     const onEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMenuOpen(false);
+      if (e.key !== 'Escape') return;
+      setIsMenuOpen(false);
+      setServicesOpen(false);
+      setHoveredServiceId(null);
+      setMobileServicesOpen(false);
+      setMobileExpandedServiceId(null);
     };
     document.addEventListener('keydown', onEscape);
     return () => document.removeEventListener('keydown', onEscape);
-  }, [isMenuOpen]);
+  }, [isMenuOpen, servicesOpen]);
+
+  useEffect(() => {
+    if (!servicesOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!servicesDropdownRef.current?.contains(e.target as Node)) {
+        setServicesOpen(false);
+        setHoveredServiceId(null);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [servicesOpen]);
+
+  useEffect(() => {
+    return () => clearCloseTimer();
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -185,6 +341,201 @@ export const Header: React.FC = () => {
   }, [themeData]);
 
   if (loading && !site) return null;
+
+  const renderDesktopServicesDropdown = (item: HeaderNavItem) => (
+      <div
+        key={item.id}
+        ref={servicesDropdownRef}
+        className="relative shrink-0"
+        onMouseEnter={openServicesMenu}
+        onMouseLeave={scheduleCloseServicesMenu}
+      >
+        <button
+          type="button"
+          className="royal-nav-link inline-flex items-center gap-1.5 border-0 bg-transparent p-0"
+          aria-expanded={servicesOpen}
+          aria-haspopup="true"
+          onClick={() => {
+            clearCloseTimer();
+            setServicesOpen((open) => !open);
+            if (servicesOpen) setHoveredServiceId(null);
+          }}
+        >
+          {item.name}
+          <ChevronIcon open={servicesOpen} />
+        </button>
+
+        {servicesOpen && (
+          <div className="absolute left-1/2 top-full z-[1100] -translate-x-1/2 pt-2">
+            <div
+              className="services-dropdown-panel min-w-[14rem] py-2"
+              role="menu"
+              aria-label="Services"
+            >
+              <Link
+                href={item.href}
+                className="services-dropdown-link border-b border-[rgba(var(--theme-primary-rgb),0.08)] font-semibold"
+                role="menuitem"
+                onClick={() => {
+                  setServicesOpen(false);
+                  setHoveredServiceId(null);
+                }}
+              >
+                All Services
+              </Link>
+
+              {serviceNavEntries.map((service) => {
+                const isHovered = hoveredServiceId === service.id;
+                const hasAreas = service.areas.length > 0;
+
+                return (
+                  <div
+                    key={service.id}
+                    className="services-dropdown-item relative"
+                    onMouseEnter={() => {
+                      clearCloseTimer();
+                      setHoveredServiceId(service.id);
+                    }}
+                    onFocus={() => setHoveredServiceId(service.id)}
+                  >
+                    <Link
+                      href={service.href}
+                      className="services-dropdown-link"
+                      role="menuitem"
+                      aria-haspopup={hasAreas || undefined}
+                      aria-expanded={hasAreas ? isHovered : undefined}
+                      onClick={() => {
+                        setServicesOpen(false);
+                        setHoveredServiceId(null);
+                      }}
+                    >
+                      <span>{service.name}</span>
+                      {hasAreas && <NestedChevron />}
+                    </Link>
+
+                    {hasAreas && isHovered && (
+                      <div className="absolute left-full top-0 z-[1110] pl-1">
+                        <div
+                          className="services-submenu-panel min-w-[12rem] py-2"
+                          role="menu"
+                          aria-label={`${service.name} service areas`}
+                        >
+                          {service.areas.map((area) => (
+                            <Link
+                              key={area.key}
+                              href={area.href}
+                              className="services-dropdown-link"
+                              role="menuitem"
+                              onClick={() => {
+                                setServicesOpen(false);
+                                setHoveredServiceId(null);
+                              }}
+                            >
+                              {area.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+
+  const renderMobileServicesNav = (item: HeaderNavItem) => (
+      <li key={item.id} className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href={item.href}
+            className="royal-nav-link block text-sm"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            {item.name}
+          </Link>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded border-0 bg-transparent"
+            style={{ color: themeColors.mainText }}
+            aria-expanded={mobileServicesOpen}
+            aria-label={mobileServicesOpen ? 'Collapse services' : 'Expand services'}
+            onClick={() => {
+              setMobileServicesOpen((open) => !open);
+              if (mobileServicesOpen) setMobileExpandedServiceId(null);
+            }}
+          >
+            <ChevronIcon open={mobileServicesOpen} />
+          </button>
+        </div>
+
+        {mobileServicesOpen && (
+          <ul className="ml-3 flex flex-col gap-2 border-l pl-3" style={{ borderColor: `color-mix(in srgb, ${themeColors.mainText} 12%, transparent)` }}>
+            <li>
+              <Link
+                href={item.href}
+                className="block py-1 text-xs font-medium tracking-wide"
+                style={{ color: themeColors.mainText }}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                All Services
+              </Link>
+            </li>
+            {serviceNavEntries.map((service) => {
+              const expanded = mobileExpandedServiceId === service.id;
+              const hasAreas = service.areas.length > 0;
+
+              return (
+                <li key={service.id} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Link
+                      href={service.href}
+                      className="royal-nav-link block text-sm normal-case tracking-normal"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {service.name}
+                    </Link>
+                    {hasAreas && (
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded border-0 bg-transparent"
+                        style={{ color: themeColors.mainText }}
+                        aria-expanded={expanded}
+                        aria-label={expanded ? `Collapse ${service.name} areas` : `Expand ${service.name} areas`}
+                        onClick={() =>
+                          setMobileExpandedServiceId((id) => (id === service.id ? null : service.id))
+                        }
+                      >
+                        <ChevronIcon open={expanded} />
+                      </button>
+                    )}
+                  </div>
+
+                  {hasAreas && expanded && (
+                    <ul className="ml-2 flex flex-col gap-1.5 border-l pl-3" style={{ borderColor: `color-mix(in srgb, ${themeColors.mainText} 10%, transparent)` }}>
+                      {service.areas.map((area) => (
+                        <li key={area.key}>
+                          <Link
+                            href={area.href}
+                            className="block py-1 text-xs tracking-wide"
+                            style={{ color: themeColors.secondaryText }}
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            {area.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </li>
+    );
 
   return (
     <>
@@ -204,7 +555,7 @@ export const Header: React.FC = () => {
             : `color-mix(in srgb, ${themeColors.pageBackground} 88%, transparent)`,
         }}
       >
-        <div className="mx-auto flex h-[4.75rem] w-full max-w-[90rem] items-center gap-3 px-4 sm:gap-4 sm:px-6 lg:h-[5.25rem] lg:gap-6 lg:px-16">
+        <div className="mx-auto flex h-[4.75rem] w-full max-w-[90rem] items-center gap-3 overflow-visible px-4 sm:gap-4 sm:px-6 lg:h-[5.25rem] lg:gap-6 lg:px-16">
           {logoImage && (
             <Link
               href="/"
@@ -227,11 +578,15 @@ export const Header: React.FC = () => {
             className="royal-header-nav hidden min-w-0 flex-1 items-center justify-center gap-4 px-2 md:flex lg:gap-6 xl:gap-8"
             aria-label="Primary"
           >
-            {navItems.map((item) => (
-              <Link key={item.id} href={item.href} className="royal-nav-link shrink-0">
-                {item.name}
-              </Link>
-            ))}
+            {navItems.map((item) =>
+              isServicesNavItem(item, pages)
+                ? renderDesktopServicesDropdown(item)
+                : (
+                  <Link key={item.id} href={item.href} className="royal-nav-link shrink-0">
+                    {item.name}
+                  </Link>
+                )
+            )}
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
@@ -288,17 +643,21 @@ export const Header: React.FC = () => {
             aria-label="Mobile primary"
           >
             <ul className="flex flex-col gap-3">
-              {navItems.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    href={item.href}
-                    className="royal-nav-link block text-sm"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
+              {navItems.map((item) =>
+                isServicesNavItem(item, pages) ? (
+                  renderMobileServicesNav(item)
+                ) : (
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      className="royal-nav-link block text-sm"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                )
+              )}
             </ul>
           </nav>
         )}

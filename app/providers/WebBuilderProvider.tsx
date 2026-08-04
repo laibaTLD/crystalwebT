@@ -67,11 +67,11 @@ interface WebBuilderProviderProps {
 export const WebBuilderProvider: React.FC<WebBuilderProviderProps> = ({ children, initialData }) => {
   const [site, setSite] = useState<Site | null>(initialData?.site ?? null);
   const [pages, setPages] = useState<Page[]>(initialData?.pages ?? []);
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Service[]>(initialData?.services ?? []);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [testimonials, setTestimonials] = useState<{ title?: string; description?: string; testimonials: any[] } | null>(null);
-  const [serviceAreaPages, setServiceAreaPages] = useState<any[]>([]);
+  const [serviceAreaPages, setServiceAreaPages] = useState<any[]>(initialData?.serviceAreaPages ?? []);
   const [currentPage, setCurrentPage] = useState<Page | null>(null);
   const [loading, setLoading] = useState(!initialData && Boolean(SITE_SLUG));
   const [error, setError] = useState<string | null>(null);

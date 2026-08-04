@@ -2,6 +2,15 @@ import NextImage, { type ImageProps } from 'next/image';
 import { forwardRef } from 'react';
 import { cn } from '@/app/lib/utils';
 
+export const IMAGE_QUALITY_HIGH = 90;
+
+export const IMAGE_SIZES = {
+  fullWidth: '100vw',
+  sectionWide: '(min-width: 1280px) 1200px, (min-width: 1024px) 92vw, 100vw',
+  sectionHalf: '(min-width: 1280px) 560px, (min-width: 768px) 50vw, 100vw',
+  card: '(min-width: 1280px) 420px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw',
+} as const;
+
 export type OptimizedImageProps = Omit<ImageProps, 'src'> & {
   src: string;
 };

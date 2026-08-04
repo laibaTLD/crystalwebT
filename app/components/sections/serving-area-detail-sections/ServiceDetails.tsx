@@ -1,375 +1,143 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { TiptapRenderer } from '@/app/components/ui/TiptapRenderer';
-import { getImageSrc } from '@/app/lib/utils';
-import { cn, SECTION_PY } from '@/app/lib/utils';
-import { useThemeColors, useThemeFonts } from '@/app/hooks/useTheme';
-import { ChevronDown, ChevronUp, CheckCircle, Zap, Shield, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
+import { tiptapToText } from '@/app/lib/seo';
+import { cn } from '@/app/lib/utils';
+import { useScrollAnimation } from '@/app/hooks/useScrollAnimation';
+import { useSectionTheme } from '@/app/hooks/useSectionTheme';
+
+const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 interface ServiceDetailsProps {
-  details: any;
+  details: unknown;
   className?: string;
 }
 
+type DetailsData = {
+  title?: unknown;
+  description?: unknown;
+};
+
+/** Service Details on service-area pages: title + description only. */
+function normalizeDetailsSection(details: unknown): DetailsData | null {
+  if (!details || typeof details !== 'object') return null;
+
+  const data = details as Record<string, unknown>;
+  if (data.enabled === false) return null;
+
+  const title = data.title;
+  const description = data.description ?? data.subtitle;
+
+  if (!title && !description) return null;
+
+  return { title, description };
+}
+
+function hasRichContent(content: unknown): boolean {
+  if (content == null || content === '') return false;
+  if (typeof content === 'object') return Boolean(tiptapToText(content));
+  return Boolean(String(content).trim());
+}
+
 export const ServiceDetails: React.FC<ServiceDetailsProps> = ({ details, className }) => {
-  const themeColors = useThemeColors();
-  const themeFonts = useThemeFonts();
-  const [expandedFeature, setExpandedFeature] = useState<number | null>(null);
+  const { colors, fonts } = useSectionTheme();
+  const primaryColor = colors.primaryButton;
 
-  if (!details || (!details.title && !details.description && (!details.features || details.features.length === 0) && (!details.process || details.process.length === 0) && (!details.benefits || details.benefits.length === 0))) return null;
+  const section = useMemo(() => normalizeDetailsSection(details), [details]);
 
-  const features = details.features || [];
-  const process = details.process || [];
-  const benefits = details.benefits || [];
-  const brandColor = themeColors.primaryButton;
+  const resolvedHeading = useMemo(
+    () => tiptapToText(section?.title) || 'Service Details',
+    [section?.title]
+  );
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'zap': return <Zap className="w-5 h-5" />;
-      case 'shield': return <Shield className="w-5 h-5" />;
-      case 'trending': return <TrendingUp className="w-5 h-5" />;
-      default: return <CheckCircle className="w-5 h-5" />;
-    }
-  };
+  const descriptionText = useMemo(
+    () => tiptapToText(section?.description),
+    [section?.description]
+  );
 
-  const toggleFeature = (index: number) => {
-    setExpandedFeature(expandedFeature === index ? null : index);
-  };
+  const { ref: triggerRef, isVisible } = useScrollAnimation<HTMLDivElement>({
+    threshold: 0.12,
+  });
+  const loaded = isVisible;
+
+  if (!section) return null;
+
+  const showDescription =
+    hasRichContent(section.description) || Boolean(descriptionText);
 
   return (
-    <section 
-      className={cn(SECTION_PY, className)}
-      style={{ backgroundColor: themeColors.pageBackground, fontFamily: themeFonts.body }}
+    <section
+      id="service-details"
+      className={cn('relative h-full overflow-hidden', className)}
+      style={{ backgroundColor: colors.pageBackground }}
     >
-      <div className="container mx-auto px-6 lg:px-12">
-        <div className="grid lg:grid-cols-12 gap-20 lg:gap-24 items-start">
-          
-          {/* Left Column: Architectural Section Header */}
-          <div className="lg:col-span-4 lg:sticky lg:top-36 space-y-10">
-            <div className="space-y-6">
-              {details.label && (
-                <span
-                  className="text-[10px] tracking-[0.4em] uppercase font-bold opacity-30"
-                  style={{ color: themeColors.mainText }}
-                >
-                  <TiptapRenderer content={details.label} as="inline" />
-                </span>
-              )}
+      <div
+        ref={triggerRef}
+        className="flex h-full min-h-full flex-col justify-center px-6 py-12 text-center sm:px-8 sm:py-14 lg:px-10 lg:py-16"
+      >
+        <p
+          className="mb-5 flex items-center justify-center gap-3 text-[11px] font-medium uppercase tracking-[0.28em]"
+          style={{
+            fontFamily: fonts.body,
+            color: primaryColor,
+            opacity: loaded ? 1 : 0,
+            transform: loaded ? 'translateY(0)' : 'translateY(16px)',
+            transition: `opacity 0.6s ${EASE}, transform 0.6s ${EASE}`,
+          }}
+        >
+          <span className="inline-block h-px w-8 shrink-0" style={{ backgroundColor: primaryColor }} />
+          Service Details
+        </p>
 
-              {details.title && (
-                <h2
-                  className="text-4xl md:text-5xl lg:text-6xl font-extralight tracking-[0.1em] uppercase leading-[1.1] text-balance"
-                  style={{
-                    color: themeColors.mainText,
-                    fontFamily: themeFonts.heading
-                  }}
-                >
-                  <TiptapRenderer content={details.title} as="inline" />
-                </h2>
-              )}
-            </div>
+        <h2
+          className="text-[clamp(1.2rem,1.8vw,1.65rem)] font-normal leading-[1.15] tracking-tight"
+          style={{
+            fontFamily: fonts.heading,
+            color: colors.mainText,
+            opacity: loaded ? 1 : 0,
+            transform: loaded ? 'translateY(0)' : 'translateY(18px)',
+            transition: `opacity 0.7s ${EASE}, transform 0.7s ${EASE}`,
+            transitionDelay: '0.15s',
+          }}
+        >
+          {resolvedHeading}
+        </h2>
 
-            {details.subtitle && (
-              <div
-                className="max-w-xs text-xs md:text-sm font-light leading-relaxed tracking-wider opacity-60 uppercase"
-                style={{ color: themeColors.secondaryText }}
-              >
-                <TiptapRenderer content={details.subtitle} />
-              </div>
-            )}
-            {details.description && (
-              <div
-                className="max-w-xs text-xs md:text-sm font-light leading-relaxed tracking-wider opacity-60 uppercase"
-                style={{ color: themeColors.secondaryText }}
-              >
-                <TiptapRenderer content={details.description} />
-              </div>
-            )}
-
-            {/* Signature Brand Detail */}
-            <div className="pt-8">
-              <div className="w-16 h-[2px]" style={{ backgroundColor: brandColor }} />
-            </div>
+        {showDescription && hasRichContent(section.description) && (
+          <div
+            className="mx-auto mt-6 w-full text-sm leading-relaxed sm:mt-7 sm:text-[0.9375rem] [&_h1]:mt-3 [&_h1]:text-base [&_h1]:font-bold [&_h2]:mt-3 [&_h2]:text-base [&_h2]:font-bold [&_h3]:mt-2 [&_h3]:text-sm [&_h3]:font-bold [&_strong]:font-semibold"
+            style={{
+              fontFamily: fonts.body,
+              color: colors.secondaryText,
+              opacity: loaded ? 1 : 0,
+              transform: loaded ? 'translateY(0)' : 'translateY(18px)',
+              transition: `opacity 0.75s ${EASE}, transform 0.75s ${EASE}`,
+              transitionDelay: '0.55s',
+            }}
+          >
+            <TiptapRenderer content={section.description} className="text-inherit" />
           </div>
+        )}
 
-          {/* Right Column: Premium Content Sections */}
-          <div className="lg:col-span-8 space-y-32">
-            
-            {/* Features Section */}
-            {features.length > 0 && (
-              <div className="space-y-12">
-                <div className="space-y-4">
-                  <span 
-                    className="text-[9px] tracking-[0.6em] uppercase font-bold opacity-40 block"
-                    style={{ color: brandColor }}
-                  >
-                    FEATURES
-                  </span>
-                  <h3 
-                    className="text-3xl lg:text-4xl font-extralight uppercase tracking-tighter leading-[1.1]"
-                    style={{ 
-                      color: themeColors.mainText,
-                      fontFamily: themeFonts.heading
-                    }}
-                  >
-                    Key Capabilities
-                  </h3>
-                </div>
-                
-                <div className="border-t border-black/10">
-                  {features.map((feature: any, index: number) => {
-                    const isOpen = expandedFeature === index;
-                    return (
-                      <div
-                        key={index}
-                        className="border-b border-black/10 overflow-hidden transition-all duration-700"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleFeature(index)}
-                          className="w-full flex items-center justify-between py-8 lg:py-10 text-left group transition-all duration-300"
-                        >
-                          <div className="flex items-start gap-8 lg:gap-12">
-                            <span
-                              className={cn(
-                                "text-[10px] mt-2.5 font-bold tracking-[0.2em] transition-all duration-500",
-                                isOpen ? "opacity-100" : "opacity-20"
-                              )}
-                              style={{ color: isOpen ? brandColor : themeColors.mainText }}
-                            >
-                              {(index + 1).toString().padStart(2, '0')}
-                            </span>
-                            
-                            <div className="flex items-center gap-6">
-                              <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center"
-                                style={{ backgroundColor: `${brandColor}15` }}
-                              >
-                                <div style={{ color: brandColor }}>
-                                  {getIcon(feature.icon)}
-                                </div>
-                              </div>
-                              <h4
-                                className={cn(
-                                  "text-xl lg:text-2xl font-extralight tracking-[0.05em] uppercase transition-all duration-500",
-                                  isOpen ? "italic scale-[1.01]" : "group-hover:opacity-50"
-                                )}
-                                style={{
-                                  color: themeColors.mainText,
-                                  fontFamily: themeFonts.heading
-                                }}
-                              >
-                                <TiptapRenderer content={feature.title} as="inline" />
-                              </h4>
-                            </div>
-                          </div>
-
-                          <div
-                            className={cn(
-                              "shrink-0 ml-4 transition-all duration-500 rounded-full w-10 h-10 flex items-center justify-center border",
-                              isOpen ? "rotate-180 border-transparent shadow-lg text-white" : "border-black/10 group-hover:border-black/30"
-                            )}
-                            style={{
-                              color: isOpen ? '#FFFFFF' : themeColors.mainText,
-                              backgroundColor: isOpen ? brandColor : 'transparent',
-                              borderColor: isOpen ? brandColor : undefined
-                            }}
-                          >
-                            {isOpen ? <ChevronUp strokeWidth={1} size={18} /> : <ChevronDown strokeWidth={1} size={18} />}
-                          </div>
-                        </button>
-
-                        <div
-                          className={cn(
-                            "grid transition-all duration-700 ease-[cubic-bezier(0.85,0,0.15,1)]",
-                            isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                          )}
-                        >
-                          <div className="overflow-hidden">
-                            <div className="pl-20 lg:pl-32 pb-10">
-                              {feature.shortDescription && (
-                                <div className="text-sm md:text-base font-light leading-relaxed opacity-70 mb-4" style={{ color: themeColors.secondaryText }}>
-                                  <TiptapRenderer content={feature.shortDescription} />
-                                </div>
-                              )}
-                              {feature.fullDescription && (
-                                <div className="text-sm md:text-base font-light leading-relaxed opacity-70 max-w-2xl" style={{ color: themeColors.secondaryText }}>
-                                  <TiptapRenderer content={feature.fullDescription} />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Process Section */}
-            {process.length > 0 && (
-              <div className="space-y-12">
-                <div className="space-y-4">
-                  <span 
-                    className="text-[9px] tracking-[0.6em] uppercase font-bold opacity-40 block"
-                    style={{ color: brandColor }}
-                  >
-                    PROCESS
-                  </span>
-                  <h3 
-                    className="text-3xl lg:text-4xl font-extralight uppercase tracking-tighter leading-[1.1]"
-                    style={{ 
-                      color: themeColors.mainText,
-                      fontFamily: themeFonts.heading
-                    }}
-                  >
-                    Our Approach
-                  </h3>
-                </div>
-                
-                <div className="space-y-12 lg:space-y-16">
-                  {process.map((step: any, index: number) => (
-                    <div key={index} className="flex items-start gap-8 lg:gap-12">
-                      <div 
-                        className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-lg"
-                        style={{ backgroundColor: brandColor }}
-                      >
-                        {(index + 1).toString().padStart(2, '0')}
-                      </div>
-                      
-                      <div className="flex-1 space-y-4">
-                        <h4 
-                          className="text-2xl lg:text-3xl font-extralight uppercase tracking-tighter leading-[1.1]"
-                          style={{ 
-                            color: themeColors.mainText,
-                            fontFamily: themeFonts.heading
-                          }}
-                        >
-                          <TiptapRenderer content={step.title} as="inline" />
-                        </h4>
-                        {step.description && (
-                          <div 
-                            className="text-base lg:text-lg font-light leading-relaxed opacity-70 max-w-2xl"
-                            style={{ color: themeColors.secondaryText }}
-                          >
-                            <TiptapRenderer content={step.description} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Benefits Section */}
-            {benefits.length > 0 && (
-              <div className="space-y-12">
-                <div className="space-y-4">
-                  <span 
-                    className="text-[9px] tracking-[0.6em] uppercase font-bold opacity-40 block"
-                    style={{ color: brandColor }}
-                  >
-                    BENEFITS
-                  </span>
-                  <h3 
-                    className="text-3xl lg:text-4xl font-extralight uppercase tracking-tighter leading-[1.1]"
-                    style={{ 
-                      color: themeColors.mainText,
-                      fontFamily: themeFonts.heading
-                    }}
-                  >
-                    Why Choose Us
-                  </h3>
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-                  {benefits.map((benefit: any, index: number) => (
-                    <div key={index} className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <div 
-                          className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${brandColor}15` }}
-                        >
-                          <div style={{ color: brandColor }}>
-                            {getIcon(benefit.icon)}
-                          </div>
-                        </div>
-                        <h4 
-                          className="text-xl lg:text-2xl font-extralight uppercase tracking-tighter leading-[1.1]"
-                          style={{ 
-                            color: themeColors.mainText,
-                            fontFamily: themeFonts.heading
-                          }}
-                        >
-                          <TiptapRenderer content={benefit.title} as="inline" />
-                        </h4>
-                      </div>
-                      
-                      {benefit.description && (
-                        <div 
-                          className="text-base lg:text-lg font-light leading-relaxed opacity-70 pl-16"
-                          style={{ color: themeColors.secondaryText }}
-                        >
-                          <TiptapRenderer content={benefit.description} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* CTA Section */}
-            {details.ctaButton && (
-              <div className="pt-16 border-t border-black/10">
-                <div className="text-center space-y-8">
-                  <div className="space-y-4">
-                    <span 
-                      className="text-[9px] tracking-[0.6em] uppercase font-bold opacity-40 block"
-                      style={{ color: brandColor }}
-                    >
-                      NEXT STEPS
-                    </span>
-                    <h3 
-                      className="text-3xl lg:text-4xl font-extralight uppercase tracking-tighter leading-[1.1]"
-                      style={{ 
-                        color: themeColors.mainText,
-                        fontFamily: themeFonts.heading
-                      }}
-                    >
-                      Ready to Begin
-                    </h3>
-                  </div>
-                  
-                  <Link
-                    href={details.ctaButton.href || details.ctaButton.url || '#'}
-                    className="inline-flex items-center gap-8 group"
-                  >
-                    <span
-                      className="text-[10px] md:text-[11px] font-bold tracking-[0.3em] uppercase transition-colors"
-                      style={{ color: brandColor }}
-                    >
-                      {details.ctaButton.text || details.ctaButton.label || 'Get Started'}
-                    </span>
-                    <div
-                      className="w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-700 group-hover:scale-110"
-                      style={{ borderColor: brandColor, color: brandColor }}
-                    >
-                      <svg className="w-4 h-4 transition-transform duration-500 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {showDescription && !hasRichContent(section.description) && descriptionText && (
+          <p
+            className="mx-auto mt-6 w-full text-sm leading-relaxed sm:mt-7 sm:text-[0.9375rem]"
+            style={{
+              fontFamily: fonts.body,
+              color: colors.secondaryText,
+              opacity: loaded ? 1 : 0,
+              transform: loaded ? 'translateY(0)' : 'translateY(18px)',
+              transition: `opacity 0.75s ${EASE}, transform 0.75s ${EASE}`,
+              transitionDelay: '0.55s',
+            }}
+          >
+            {descriptionText}
+          </p>
+        )}
       </div>
     </section>
   );
 };
+
+export default ServiceDetails;

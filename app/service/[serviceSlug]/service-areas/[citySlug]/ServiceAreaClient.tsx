@@ -7,8 +7,7 @@ import { Footer } from '@/app/components/layout/Footer';
 import { HeroSection } from '@/app/components/sections/serving-area-detail-sections/Hero';
 import { About } from '@/app/components/sections/serving-area-detail-sections/About';
 import { ServiceOverview } from '@/app/components/sections/serving-area-detail-sections/ServiceOverview';
-import { ServiceDetails } from '@/app/components/sections/serving-area-detail-sections/ServiceDetails';
-import { WhyChooseUs } from '@/app/components/sections/serving-area-detail-sections/WhyChooseUs';
+import { ServiceDetailsWhyChooseUsPair } from '@/app/components/sections/serving-area-detail-sections/ServiceDetailsWhyChooseUsPair';
 import { Highlights } from '@/app/components/sections/serving-area-detail-sections/Highlights';
 import { OurServices } from '@/app/components/sections/serving-area-detail-sections/OurServices';
 import { ServingAreas } from '@/app/components/sections/serving-area-detail-sections/ServingAreas';
@@ -120,14 +119,13 @@ export default function ServiceAreaClient({ serviceSlug: serviceSlugProp, citySl
         {/* 5. CTA (Call To Action) */}
         <CTA cta={serviceAreaPage.cta} />
 
-        {/* 6. Service Details */}
-        <ServiceDetails details={serviceDetailsData} />
-        
-        {/* 7. Service Overview */}
+        {/* 6–7. Service Overview + paired sections */}
         <ServiceOverview overview={serviceOverviewData} />
-        
-        {/* 8. Why Choose Us */}
-        <WhyChooseUs whyChooseUs={whyChooseUsData} />
+
+        <ServiceDetailsWhyChooseUsPair
+          whyChooseUs={whyChooseUsData}
+          serviceDetails={serviceDetailsData}
+        />
         
         {/* 9. FAQs */}
         <FAQs faqs={serviceAreaPage.faqs} />

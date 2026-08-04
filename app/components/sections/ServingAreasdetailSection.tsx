@@ -11,8 +11,7 @@ import { About } from './serving-area-detail-sections/About';
 import { OurServices } from './serving-area-detail-sections/OurServices';
 import { CTA } from './serving-area-detail-sections/CTA';
 import { ServiceOverview } from './serving-area-detail-sections/ServiceOverview';
-import { ServiceDetails } from './serving-area-detail-sections/ServiceDetails';
-import { WhyChooseUs } from './serving-area-detail-sections/WhyChooseUs';
+import { ServiceDetailsWhyChooseUsPair } from './serving-area-detail-sections/ServiceDetailsWhyChooseUsPair';
 import { FAQs } from './serving-area-detail-sections/FAQs';
 import { ServingAreas } from './serving-area-detail-sections/ServingAreas';
 
@@ -22,6 +21,7 @@ interface ServingAreasdetailSectionProps {
     highlights?: any;
     about?: any;
     ourServices?: any;
+    pageServiceId?: string;
     cta?: any;
     serviceOverview?: any;
     serviceDetails?: any;
@@ -53,16 +53,18 @@ export const ServingAreasdetailSection: React.FC<ServingAreasdetailSectionProps>
       {data.about && <About about={data.about} />}
 
       {/* Our Services Section */}
-      {data.ourServices && <OurServices services={data.ourServices} />}
-
-      {/* Service Details Section */}
-      {data.serviceDetails && <ServiceDetails details={data.serviceDetails} />}
+      {data.ourServices && (
+        <OurServices services={data.ourServices} pageServiceId={data.pageServiceId} />
+      )}
 
       {/* Service Overview Section */}
       {data.serviceOverview && <ServiceOverview overview={data.serviceOverview} />}
 
-      {/* Why Choose Us Section */}
-      {data.whyChooseUs && <WhyChooseUs whyChooseUs={data.whyChooseUs} />}
+      {/* Why Choose Us + Service Details (side by side) */}
+      <ServiceDetailsWhyChooseUsPair
+        whyChooseUs={data.whyChooseUs}
+        serviceDetails={data.serviceDetails}
+      />
 
       {/* FAQs Section */}
       {data.faqs && <FAQs faqs={data.faqs} />}
